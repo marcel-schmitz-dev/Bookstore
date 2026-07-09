@@ -158,3 +158,13 @@ header h1 {
 .filter-controls button:hover {
     background: #3b82f6;
 }
+
+footer {
+    text-align: center;
+    padding: 30px;
+    margin-top: 50px;
+    color: #6b7280; 
+    font-size: 0.9rem;
+    border-top: 1px solid rgba(96, 165, 250, 0.2);
+    background: rgba(17, 24, 39, 0.5); 
+}
