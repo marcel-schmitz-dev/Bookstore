@@ -1,8 +1,16 @@
 body {
+    display: flex;
+    flex-direction:column;
+    min-height: 100vh;
+    margin: 0;
     background: #121212;  
     color: white;  
     font-family: 'Outfit', sans-serif; 
     padding: 20px; 
+}
+
+main{
+    flex: 1;
 }
 
 header {
@@ -160,6 +168,7 @@ header h1 {
 }
 
 footer {
+    width: 100%;
     text-align: center;
     padding: 30px;
     margin-top: 50px;
