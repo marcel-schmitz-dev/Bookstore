@@ -1,5 +1,5 @@
 export const books = [
-    {
+        {
         name: "Codex Aurora",
         author: "A. I. Generator",
         publishedYear: 2026,

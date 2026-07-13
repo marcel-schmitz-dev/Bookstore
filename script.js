@@ -1,108 +1,101 @@
-import { books as initialBooks } from './data.js';
+import { books as initialBooks } from './scripts/data.js';
+import * as templates from './scripts/templates.js';
 
 let books = JSON.parse(localStorage.getItem('myBookstoreData')) || initialBooks;
 let showOnlyFavorites = false;
+let pendingDelete = { bIdx: null, cIdx: null }; 
 
 function saveData() {
     localStorage.setItem('myBookstoreData', JSON.stringify(books));
 }
 
-function createMetaSection(book) {
-    return `
-        <div class="book-meta">
-            <p><strong>Autor:</strong> ${book.author}</p>
-            <p><strong>Jahr:</strong> ${book.publishedYear} | <strong>Genre:</strong> ${book.genre}</p>
-            <p><strong>Preis:</strong> ${book.price.toFixed(2)} €</p>
-        </div>
-    `;
-}
+document.addEventListener('click', (event) => {
+    const target = event.target;
+    
+    if (target.id === 'confirm-yes') {
+        handleDeleteComment(pendingDelete.bIdx, pendingDelete.cIdx);
+        document.getElementById('confirm-modal').style.display = 'none';
+        return; 
+    }
+    if (target.id === 'confirm-no') {
+        document.getElementById('confirm-modal').style.display = 'none';
+        return;
+    }
 
-function createCommentSection(book, bookIndex) {
-    const commentsHTML = book.comments.length > 0 
-        ? book.comments.map((c, cIdx) => createSingleComment(c, bookIndex, cIdx)).join('') 
-        : '<p>Keine Kommentare vorhanden.</p>';
-    return `<div class="comment-section" id="comments-${bookIndex}"><h4>Kommentare:</h4>${commentsHTML}</div>`;
-}
+    const actionKey = Object.keys(actions).find(key => 
+        target.id?.startsWith(key) || target.classList.contains(key)
+    );
+    
+    if (actionKey) {
+        const index = target.id?.split('-')[1] || target.getAttribute('data-book');
+        const cIdx = target.getAttribute('data-comment');
+        actions[actionKey](index, cIdx);
+    }
+});
 
-function createSingleComment(c, bIdx, cIdx) {
-    return `
-        <div class="comment-item">
-            <p><b>${c.name}:</b> ${c.comment}</p>
-            <button class="delete-btn" data-book="${bIdx}" data-comment="${cIdx}">X</button>
-        </div>
-    `;
-}
-
-function createActionSection(book, index) {
-    return `
-        <div class="actions">
-            <span class="like-btn ${book.liked ? 'liked' : ''}" id="like-${index}" style="cursor:pointer;">♥ ${book.likes}</span>
-            <span class="fav-btn ${book.isFavorite ? 'active-fav' : ''}" id="fav-${index}" style="cursor:pointer;">
-                ${book.isFavorite ? '★' : '☆'}
-            </span>
-        </div>
-    `;
-}
-
-function createInputSection(index) {
-    return `
-        <div class="input-area">
-            <input type="text" id="input-${index}" placeholder="Kommentar...">
-            <button id="send-${index}">Senden</button>
-        </div>
-    `;
-}
-
-function createBookCardHTML(book, index) {
-    return `
-        <div class="book-card" id="card-${index}">
-            <h2>${book.name}</h2>
-            <img src="./assets/img/${book.image}" alt="${book.name}" class="book-cover">
-            ${createMetaSection(book)}
-            ${createActionSection(book, index)}
-            ${createCommentSection(book, index)}
-            ${createInputSection(index)}
-        </div>
-    `;
-}
-
-function attachEventListeners(index) {
-    document.getElementById(`like-${index}`).addEventListener('click', () => handleLike(index));
-
-    document.getElementById(`send-${index}`).addEventListener('click', () => handleComment(index));
-
-    document.getElementById(`fav-${index}`).addEventListener('click', () => handleFavorite(index));
-
-    const inputField = document.getElementById(`input-${index}`);
-    inputField.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        const target = event.target;
+        
+        if (target.id && target.id.startsWith('input-')) {
+            const index = target.id.split('-')[1];
             handleComment(index);
         }
-    });
+    }
+});
 
-    const deleteButtons = document.querySelectorAll(`#card-${index} .delete-btn`);
-    deleteButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => handleDeleteComment(
-            e.target.getAttribute('data-book'), 
-            e.target.getAttribute('data-comment')
-        ));
-    });
+const actions = {
+    'show-all': () => { showOnlyFavorites = false; renderBooks(); },
+    'show-favs': () => { showOnlyFavorites = true; renderBooks(); },
+    'send': (idx) => handleComment(idx),
+    'like': (idx) => handleLike(idx),
+    'fav': (idx) => handleFavorite(idx),
+    'delete-btn': (bIdx, cIdx) => { 
+        pendingDelete = {bIdx, cIdx}; 
+        document.getElementById('confirm-modal').style.display = 'flex'; 
+    }
+};
+
+function renderBooks() {
+    const container = document.getElementById('book-container');
+    container.innerHTML = ""; 
+
+    for (let i = 0; i < books.length; i++) {
+        if (!showOnlyFavorites || books[i].isFavorite) {
+            container.innerHTML += templates.createBookCardHTML(books[i], i);
+        }
+    }
+}
+
+function handleComment(index) {
+    const input = document.getElementById(`input-${index}`);
+    if (input && input.value.trim() !== "") {
+        books[index].comments.push({ name: "Du", comment: input.value });
+        saveData();
+        
+        const commentContainer = document.getElementById(`comments-${index}`);
+        if (commentContainer) {
+            commentContainer.innerHTML = `<h4>Kommentare:</h4>` + templates.getUpdatedCommentsHTML(books[index], index);
+        }
+        input.value = ""; 
+    }
+}
+
+function handleDeleteComment(bIdx, cIdx) {
+    books[bIdx].comments.splice(cIdx, 1);
+    saveData();
+    
+    const commentContainer = document.getElementById(`comments-${bIdx}`);
+    if (commentContainer) {
+        commentContainer.innerHTML = `<h4>Kommentare:</h4>` + templates.getUpdatedCommentsHTML(books[bIdx], bIdx);
+    }
 }
 
 function handleLike(index) {
     books[index].liked = !books[index].liked;
     books[index].likes += books[index].liked ? 1 : -1;
     saveData();
-    renderBooks();
-}
-
-function handleComment(index) {
-    const input = document.getElementById(`input-${index}`);
-    if (input.value.trim() !== "") {
-        books[index].comments.push({ name: "Du", comment: input.value });
-        saveData();
-        renderBooks();
-    }
+    renderBooks(); 
 }
 
 function handleFavorite(index) {
@@ -110,38 +103,5 @@ function handleFavorite(index) {
     saveData();
     renderBooks();
 }
-
-function handleDeleteComment(bIdx, cIdx) {
-    if (confirm("Möchtest du diesen Kommentar wirklich löschen?")) {
-        books[bIdx].comments.splice(cIdx, 1);
-        saveData();
-        renderBooks();
-    }
-}
-
-function renderBooks() {
-    const container = document.getElementById('book-container');
-
-    const filteredBooks = showOnlyFavorites 
-        ? books.filter(book => book.isFavorite) 
-        : books;
-
-    container.innerHTML = books.map((book, index) => {
-        if (showOnlyFavorites && !book.isFavorite) return '';
-        return createBookCardHTML(book, index);
-    }).join('');
-    
-    books.forEach((_, index) => attachEventListeners(index));
-}
-
-document.getElementById('show-all-btn').addEventListener('click', () => {
-    showOnlyFavorites = false;
-    renderBooks();
-});
-
-document.getElementById('show-favs-btn').addEventListener('click', () => {
-    showOnlyFavorites = true;
-    renderBooks();
-});
 
 renderBooks();
